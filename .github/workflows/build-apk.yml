@@ -23,25 +23,61 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Install ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
       - name: Prepare Yun
         run: |
-          mkdir -p www assets
-          test -f index.html || (echo "index.html not found" && exit 1)
-          test -f icon-only.png || (echo "icon-only.png not found" && exit 1)
+          test -f index.html
+          test -f icon-only.png
+          mkdir -p www
           cp index.html www/index.html
-          cp icon-only.png assets/icon-only.png
 
       - name: Install Capacitor
         run: |
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
+          npm install @capacitor/core @capacitor/cli @capacitor/android
 
-      - name: Configure Android
+      - name: Create Android project
         run: |
           npx cap init Yun com.yun.game --web-dir=www
           npx cap add android
-          npx capacitor-assets generate --android
           npx cap sync android
+
+      - name: Set app name and custom icon
+        run: |
+          RES=android/app/src/main/res
+
+          sed -i 's|<string name="app_name">.*</string>|<string name="app_name">Yun</string>|' "$RES/values/strings.xml"
+
+          for item in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density=${item%:*}
+            size=${item#*:}
+            mkdir -p "$RES/mipmap-$density"
+            convert icon-only.png -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$RES/mipmap-$density/ic_launcher.png"
+            cp "$RES/mipmap-$density/ic_launcher.png" "$RES/mipmap-$density/ic_launcher_round.png"
+          done
+
+          for item in mdpi:108 hdpi:162 xhdpi:216 xxhdpi:324 xxxhdpi:432; do
+            density=${item%:*}
+            size=${item#*:}
+            convert icon-only.png -resize "${size}x${size}" -gravity center -extent "${size}x${size}" "$RES/mipmap-$density/ic_launcher_foreground.png"
+          done
+
+          mkdir -p "$RES/mipmap-anydpi-v26" "$RES/values"
+
+          cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+
+          cp "$RES/mipmap-anydpi-v26/ic_launcher.xml" "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
+
+          echo '<resources><color name="ic_launcher_background">#FFFFFF</color></resources>' > "$RES/values/ic_launcher_background.xml"
 
       - name: Build APK
         working-directory: android
