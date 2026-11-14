@@ -1,5 +1,5 @@
 
-name: Build HTML Game APK
+name: Build Yun APK
 
 on:
   workflow_dispatch:
@@ -23,15 +23,12 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Prepare HTML game
+      - name: Prepare Yun
         run: |
-          HTML=$(find . -maxdepth 1 -type f -name '*.html' -print -quit)
-          if [ -z "$HTML" ]; then
-            echo "No HTML game found in repository root"
-            exit 1
-          fi
           mkdir -p www assets
-          cp "$HTML" www/index.html
+          test -f index.html || (echo "index.html not found" && exit 1)
+          test -f icon-only.png || (echo "icon-only.png not found" && exit 1)
+          cp index.html www/index.html
           cp icon-only.png assets/icon-only.png
 
       - name: Install Capacitor
@@ -41,7 +38,7 @@ jobs:
 
       - name: Configure Android
         run: |
-          npx cap init "My HTML Game" com.example.htmlgame --web-dir=www
+          npx cap init Yun com.yun.game --web-dir=www
           npx cap add android
           npx capacitor-assets generate --android
           npx cap sync android
@@ -55,5 +52,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: My-HTML-Game-APK
+          name: Yun-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
